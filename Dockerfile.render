@@ -4,7 +4,7 @@ WORKDIR /build/frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
-RUN npm run build
+RUN npm run build && test -f /build/backend/static/index.html
 
 FROM python:3.12-slim
 
@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 \
 COPY backend/app ./app
 COPY --from=frontend-build /build/backend/static ./static
 COPY scripts/start-render.sh ./start-render.sh
-RUN chmod +x ./start-render.sh
+RUN chmod +x ./start-render.sh && test -f ./static/index.html
 
 ENV HF_HOME=/app/.cache/huggingface
 ENV TRANSFORMERS_CACHE=/app/.cache/huggingface

@@ -29,8 +29,23 @@ MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_VIDEO_BYTES = 100 * 1024 * 1024
 
 
+def _frontend_index() -> FileResponse:
+    index = STATIC_DIR / "index.html"
+    if not index.is_file():
+        raise HTTPException(
+            status_code=503,
+            detail="Frontend not built. API is available at /docs and /api/health.",
+        )
+    return FileResponse(index)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    logger.info("Static frontend dir: %s (exists=%s)", STATIC_DIR, STATIC_DIR.exists())
+    if (STATIC_DIR / "index.html").is_file():
+        logger.info("Serving frontend from %s", STATIC_DIR)
+    else:
+        logger.warning("Frontend index.html missing — only API routes will work")
     detector.start_background_load()
     yield
 
@@ -135,10 +150,19 @@ async def detect_video(file: UploadFile = File(...)) -> VideoDetectionResponse:
     )
 
 
+@app.get("/")
+@app.head("/")
+async def root():
+    return _frontend_index()
+
+
 if STATIC_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+    assets_dir = STATIC_DIR / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     @app.get("/{full_path:path}")
+    @app.head("/{full_path:path}")
     async def serve_frontend(full_path: str):
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not found")
@@ -147,8 +171,4 @@ if STATIC_DIR.exists():
         if requested.is_file():
             return FileResponse(requested)
 
-        index = STATIC_DIR / "index.html"
-        if index.exists():
-            return FileResponse(index)
-
-        raise HTTPException(status_code=404, detail="Frontend not built.")
+        return _frontend_index()
