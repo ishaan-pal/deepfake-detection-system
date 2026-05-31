@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: deepguard
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: pro
+    region: oregon
+    healthCheckPath: /api/health
+    disk:
+      name: model-cache
+      mountPath: /app/.cache/huggingface
+      sizeGB: 10
+    envVars:
+      - key: HF_HOME
+        value: /app/.cache/huggingface
+      - key: TRANSFORMERS_CACHE
+        value: /app/.cache/huggingface
+      - key: PYTHONUNBUFFERED
+        value: "1"
